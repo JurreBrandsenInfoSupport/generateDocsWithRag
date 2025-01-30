@@ -33,7 +33,6 @@ def detect_language(filename: str) -> Tuple[Language, str]:
 
     return None, None
 
-
 def parse_tree(filename: str, content: str) -> Tuple[Tree, str]:
     language, language_name = detect_language(filename)
 

@@ -1,13 +1,14 @@
 # app.py
 import os
+import shutil
 import tempfile
 import time
 import streamlit as st
 from streamlit_chat import message
 from rag import RagDocumentationGenerator
+import nltk
 
 st.set_page_config(page_title="RAG with Local DeepSeek R1")
-
 
 def display_messages():
     """Display the chat history."""
@@ -42,19 +43,20 @@ def read_and_save_file():
     st.session_state["user_input"] = ""
 
     for file in st.session_state["file_uploader"]:
-        with tempfile.NamedTemporaryFile(delete=False) as tf:
-            tf.write(file.getbuffer())
-            file_path = tf.name
+        temp_dir = tempfile.mkdtemp()
+        file_path = os.path.join(temp_dir, file.name)  # Preserve file name & extension
+
+        with open(file_path, "wb") as f:
+            shutil.copyfileobj(file, f)
 
         with st.session_state["ingestion_spinner"], st.spinner(f"Ingesting {file.name}..."):
             t0 = time.time()
-            st.session_state["assistant"].ingest(file_path)
+            st.session_state["assistant"].ingest(file_path, debug=True)
             t1 = time.time()
 
         st.session_state["messages"].append(
             (f"Ingested {file.name} in {t1 - t0:.2f} seconds", False)
-        )
-        os.remove(file_path)
+    )
 
 
 def page():
@@ -68,7 +70,6 @@ def page():
     st.subheader("Upload a Document")
     st.file_uploader(
         "Upload file(s)",
-        type=["cs"],
         key="file_uploader",
         on_change=read_and_save_file,
         label_visibility="collapsed",
