@@ -1,0 +1,27 @@
+[
+  {
+    "name": "javascript",
+    "package": "tree_sitter_javascript",
+    "extensions": [".js", ".jsx"]
+  },
+  {
+    "name": "typescript",
+    "package": "tree_sitter_typescript",
+    "extensions": [".ts", ".tsx"]
+  },
+  {
+    "name": "python",
+    "package": "tree_sitter_python",
+    "extensions": [".py"]
+  },
+  {
+    "name": "ruby",
+    "package": "tree_sitter_ruby",
+    "extensions": [".rb"]
+  },
+  {
+    "name": "csharp",
+    "package": "tree_sitter_c_sharp",
+    "extensions": [".cs"]
+  }
+]

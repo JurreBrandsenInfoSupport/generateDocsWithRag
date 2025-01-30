@@ -4,7 +4,7 @@ import tempfile
 import time
 import streamlit as st
 from streamlit_chat import message
-from rag import ChatPDF
+from rag import RagDocumentationGenerator
 
 st.set_page_config(page_title="RAG with Local DeepSeek R1")
 
@@ -61,14 +61,14 @@ def page():
     """Main app page layout."""
     if len(st.session_state) == 0:
         st.session_state["messages"] = []
-        st.session_state["assistant"] = ChatPDF()
+        st.session_state["assistant"] = RagDocumentationGenerator()
 
-    st.header("RAG with Local DeepSeek R1")
+    st.header("RAGGEN met Sanjay")
 
     st.subheader("Upload a Document")
     st.file_uploader(
-        "Upload a PDF document",
-        type=["pdf"],
+        "Upload file(s)",
+        type=["cs"],
         key="file_uploader",
         on_change=read_and_save_file,
         label_visibility="collapsed",
