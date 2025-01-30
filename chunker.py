@@ -20,13 +20,12 @@ def chunk_node(node: Node, text: str, max_chars: int = 1000, debug: bool = False
             current_chunk += "\n" + chunk_text
 
     if debug:
-        with open("chunks_debug.txt", "w", encoding="utf-8") as f:
-            f.write("===== Extracted Chunks =====\n\n")
+        # Open in append mode instead of overwrite mode
+        with open("chunks_debug.txt", "a", encoding="utf-8") as f:
+            f.write("\n===== New File Processed =====\n\n")
             for i, chunk in enumerate(new_chunks):
                 f.write(f"--- Chunk {i+1} ---\n")
                 f.write(chunk)
                 f.write("\n\n")
-
-        print(f"✅ Chunks saved to chunks_debug.txt ({len(new_chunks)} chunks)")
 
     return new_chunks

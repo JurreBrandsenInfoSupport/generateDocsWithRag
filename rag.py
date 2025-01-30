@@ -2,21 +2,19 @@
 from langchain_core.globals import set_verbose, set_debug
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain.schema.output_parser import StrOutputParser
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema.runnable import RunnablePassthrough
-from langchain_community.vectorstores.utils import filter_complex_metadata
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_community.document_loaders import UnstructuredFileLoader
-import logging
-from typing import List
 from langchain_core.documents import Document
+import logging
+import os
+import chardet
 
 import documentLoader as t;
 import chunker as c;
 
 set_debug(True)
-set_verbose(True)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -47,37 +45,58 @@ class RagDocumentationGenerator:
         self.retriever = None
 
     def ingest(self, file_path: str, debug: bool = False):
-        """
-        Ingests a C# file, processes its syntax tree, chunks its content,
-        and stores embeddings in the vector store.
-        """
-        logger.info(f"Starting ingestion for file: {file_path}")
+        """Handles single files or directories for ingestion."""
+        if os.path.isdir(file_path):  # If it's a directory, process all files
+            for root, _, files in os.walk(file_path):
+                for file_name in files:
+                    file_full_path = os.path.join(root, file_name)
+                    self._process_file(file_full_path, debug)
+        else:
+            self._process_file(file_path, debug)
 
-        with open(file_path, 'r', encoding='utf-8') as file:
-            content = file.read()
+    def _process_file(self, file_path: str, debug: bool):
+        """Safely ingest a file, handling encoding issues and skipping binary files."""
+        logger.info(f"Processing file: {os.path.basename(file_path)}")
+
+        # Detect encoding
+        try:
+            with open(file_path, "rb") as f:
+                raw_data = f.read(10000)  # Read first 10KB to detect encoding
+                detected = chardet.detect(raw_data)
+                encoding = detected["encoding"]
+
+            if encoding is None:
+                logger.warning(f"Skipping {file_path}: Unable to detect encoding.")
+                return
+
+            # Read content using detected encoding
+            with open(file_path, "r", encoding=encoding, errors="ignore") as file:
+                content = file.read()
+
+        except Exception as e:
+            logger.error(f"Skipping {file_path}: {e}")
+            return
 
         try:
             tree, language_name = t.parse_tree(file_path, content)
-            logger.info(f"Parsed file: {file_path}, Language detected: {language_name}")
-
             chunks = c.chunk_node(tree.root_node, content, debug=debug)
             chunk_docs = [Document(page_content=chunk) for chunk in chunks]
 
-            # Debug: Log each chunk before storing
-            logger.info(f"Generated {len(chunk_docs)} chunks:")
-            for i, doc in enumerate(chunk_docs):
-                logger.info(f"Chunk {i+1}: {doc.page_content[:100]}...")  # Show first 100 chars
+            # Load existing vector store or create a new one
+            if os.path.exists("chroma_db"):
+                self.vector_store = Chroma(persist_directory="chroma_db", embedding_function=self.embeddings)
+            else:
+                self.vector_store = Chroma.from_documents(
+                    documents=chunk_docs,
+                    embedding=self.embeddings,
+                    persist_directory="chroma_db",
+                )
 
-            self.vector_store = Chroma.from_documents(
-                documents=chunk_docs,
-                embedding=self.embeddings,
-                persist_directory="chroma_db",
-            )
-
-            logger.info("Ingestion completed. Document embeddings stored successfully.")
+            # Add new documents (appending instead of overwriting)
+            self.vector_store.add_documents(chunk_docs)
 
         except ValueError as e:
-            logger.error(f"Failed to ingest {file_path}: {e}")
+            logger.error(f"Skipping {file_path}: {e}")
 
 
     def ask(self, query: str, k: int = 5, score_threshold: float = 0.2):

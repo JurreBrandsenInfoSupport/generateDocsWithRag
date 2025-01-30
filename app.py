@@ -6,7 +6,7 @@ import time
 import streamlit as st
 from streamlit_chat import message
 from rag import RagDocumentationGenerator
-import nltk
+import zipfile
 
 st.set_page_config(page_title="RAG with Local DeepSeek R1")
 
@@ -36,28 +36,48 @@ def process_input():
         st.session_state["messages"].append((agent_text, False))
 
 
-def read_and_save_file():
-    """Handle file upload and ingestion."""
+def read_and_save_files():
+    """Handle directory (zip) upload and ingestion."""
     st.session_state["assistant"].clear()
     st.session_state["messages"] = []
     st.session_state["user_input"] = ""
 
-    for file in st.session_state["file_uploader"]:
-        temp_dir = tempfile.mkdtemp()
-        file_path = os.path.join(temp_dir, file.name)  # Preserve file name & extension
+    for uploaded_file in st.session_state["file_uploader"]:
+        if uploaded_file.name.endswith(".zip"):
+            temp_dir = tempfile.mkdtemp()
+            zip_path = os.path.join(temp_dir, uploaded_file.name)
 
-        with open(file_path, "wb") as f:
-            shutil.copyfileobj(file, f)
+            with open(zip_path, "wb") as f:
+                shutil.copyfileobj(uploaded_file, f)
 
-        with st.session_state["ingestion_spinner"], st.spinner(f"Ingesting {file.name}..."):
-            t0 = time.time()
-            st.session_state["assistant"].ingest(file_path, debug=True)
-            t1 = time.time()
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                zip_ref.extractall(temp_dir)
 
-        st.session_state["messages"].append(
-            (f"Ingested {file.name} in {t1 - t0:.2f} seconds", False)
-    )
+            # Process each extracted file
+            for root, _, files in os.walk(temp_dir):
+                for file_name in files:
+                    file_path = os.path.join(root, file_name)
+                    st.session_state["assistant"].ingest(file_path, debug=True)
 
+            st.session_state["messages"].append(
+                (f"Extracted and ingested {uploaded_file.name}", False)
+            )
+
+        else:  # If it's a regular file
+            temp_dir = tempfile.mkdtemp()
+            file_path = os.path.join(temp_dir, uploaded_file.name)
+
+            with open(file_path, "wb") as f:
+                shutil.copyfileobj(uploaded_file, f)
+
+            with st.session_state["ingestion_spinner"], st.spinner(f"Ingesting {uploaded_file.name}..."):
+                t0 = time.time()
+                st.session_state["assistant"].ingest(file_path, debug=True)
+                t1 = time.time()
+
+            st.session_state["messages"].append(
+                (f"Ingested {uploaded_file.name} in {t1 - t0:.2f} seconds", False)
+            )
 
 def page():
     """Main app page layout."""
@@ -69,9 +89,9 @@ def page():
 
     st.subheader("Upload a Document")
     st.file_uploader(
-        "Upload file(s)",
+        "Upload file(s) or a .zip directory",
         key="file_uploader",
-        on_change=read_and_save_file,
+        on_change=read_and_save_files,
         label_visibility="collapsed",
         accept_multiple_files=True,
     )
