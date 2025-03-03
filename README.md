@@ -1,4 +1,4 @@
-# Local ChatPDF with DeepSeek R1
+# Local ChatPDF with DeepSeek R1!
 
 **ChatPDF** is a Retrieval-Augmented Generation (RAG) application that allows users to upload PDF documents and interact with them through a chatbot interface. The system uses advanced embedding models and a local vector store for efficient and accurate question-answering.
 
